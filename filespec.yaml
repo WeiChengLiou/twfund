@@ -1,0 +1,41 @@
+boards:
+    序號: no
+    姓名: name
+    職稱: title
+
+fundinfo:
+    登記案號: logkey
+    類別: type
+    案由: log_why
+    主任: incharger
+    登記號數: logno
+    收件日期: recvdate
+    登記日期: logdate
+    公告日期: pubdate
+    登記簿: logbook
+    任期判定: duration_jug
+    屆期判定: term_jug
+    法人代表: boss
+    法人名稱: name
+    設立登記日期: startdate
+    主事務所: addr
+    目的: target
+    捐助方法: donateway
+    許可機關日期: passkey
+    存立時期: duration
+    財產總額: capital
+    結案原因: pass_why
+    結案日期: passdate
+    歸檔日期: filedate
+    發證日期: licendate    
+    送達代收人姓名: mailname
+    送達代收人住址: mailaddr
+    郵遞區號: postno    
+    清算人: setlname
+    變更原因: chgcause   
+    註銷日期: closedate
+    撤銷日期: rejectdate
+    撤(註)銷機關文號: rejectkey
+    撤(註)銷原因: reject_why 
+    latitude: latitude
+    longitude: longitude
