@@ -38,6 +38,7 @@ def sprint(li):
 
 class FundItem(object):
     funderrdic = {}
+
     def __init__(self):
         """"""
 
@@ -68,8 +69,9 @@ class FundItem(object):
 
     def process(self, key, v):
         if key == 'name':
-            v = replaces(name, [u'\u3000', u'。']). \
-                replace(u'︵', u'（').replace(u'︶', u'）')
+            v = replaces(v, [u'\u3000', u'。']). \
+                replace(u'︵', u'（').replace(u'︶', u'）'). \
+                replace(u'台灣', u'臺灣').replace(u'証券', u'證券')
             if v in FundItem.funderrdic:
                 v = FundItem.funderrdic[v]
         self.__dict__[key] = v
@@ -194,10 +196,9 @@ def loaderrdic():
     f = open('fixfund.txt')
     dic = {}
     for li in f:
-        for k, v in li[:-1].split(u'\t'):
-            dic[k] = v
+        rs = li[:-1].decode('utf8').split(u':')
+        dic[rs[0]] = rs[1]
     FundItem.funderrdic = dic
-
 
 
 def insdb(dic):
