@@ -28,9 +28,11 @@ def init(db=None):
     if not exists(pwdfi):
         pwdfi = 'pwd.example.yaml'
     dic = yaml.load(open(pwdfi))
+    uri = 'mongodb://{user}:{pwd}@{ip}:{port}/{db}'.format(**dic)
     if db:
         dic['db'] = db
-    uri = 'mongodb://{user}:{pwd}@{ip}:{port}/{db}'.format(**dic)
+    else:
+        dic['db'] = 'twfund'
     client = MongoClient(uri)
     cn = eval("client.%s" % dic['db'])
     return cn

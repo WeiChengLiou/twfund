@@ -3,7 +3,9 @@
 
 from twfund import makeindex
 from twfund import boardnet
+from twfund import bossnet1
 
-makeindex.refresh()
-makeindex.defnew()
-boardnet.update_boss()
+#makeindex.refresh()
+#makeindex.defnew()
+#bossnet1.appitems()
+bossnet1.update_boss()

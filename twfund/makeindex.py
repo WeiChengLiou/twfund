@@ -69,9 +69,18 @@ class FundItem(object):
 
     def process(self, key, v):
         if key == 'name':
-            v = replaces(v, [u'\u3000', u'。']). \
-                replace(u'︵', u'（').replace(u'︶', u'）'). \
-                replace(u'台灣', u'臺灣').replace(u'証券', u'證券')
+            #v = replaces(v, [u'\u3000', u'。']). \
+            #    replace(u'︵', u'（').replace(u'︶', u'）'). \
+            #    replace(u'台灣', u'臺灣').replace(u'証券', u'證券')
+
+            li = [(u'︵', u'（'),
+                  (u'︶', u'）'),
+                  (u'台灣', u'臺灣'),
+                  (u'証券', u'證券'),
+                  (u'\u3000', u' '),
+                  (u'。', u'')]
+            v = reduce(lambda x, y: x.replace(*y), li, v).strip()
+
             if v in FundItem.funderrdic:
                 v = FundItem.funderrdic[v]
         self.__dict__[key] = v
@@ -141,7 +150,7 @@ class FundItem(object):
             vs = [x.strip() for x in br]
             kvs = br[1]
             if kvs in sets:
-                # 另外紀錄董監事名單裡重複的名字
+                # 另外紀錄分公司名單裡重複的名字
                 print kvs
             else:
                 sets.add(kvs)
