@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from datetime import datetime
+import pymongo
 from groups import groups
 from pdb import set_trace
 from traceback import print_exc
@@ -17,13 +19,13 @@ from utils import *
 #
 # 現有資料整合方式
 # 1. 整合比對重複董監事名單
-#     1. 輸入董監事資料至現有資料庫
+#     1. 輸入董監事資料至現有資料庫 (加上 source)
 #     2. 紀錄新增加哪些機構單位 -> newids
 #     3. 以 newids 為主，逐一找出資料庫中重複董監名單的公司
 #     4. 紀錄重複的董監事名稱與公司代號
-# 2. 整合現有 bossnode, bossedge
-#     1. bossnode: 消除 redundant bossnode
-#     2. bossedge: 取代被消除的 bossnode 為 major bossnode
+# 2. 整合現有 bossnode
+#     1. 合併 bossnode
+#     2. 消除 redundant bossnode
 
 
 def update_boss():
@@ -31,33 +33,41 @@ def update_boss():
     newids = getcoms()
     logger.info('Total foundation count: {0}'.format(len(newids)))
 
+    appitems()
     dup_bossname(newids)
 
     #fix_bad_board()
 
-    #names = cn.boards1.distinct('name')
-    #run_bossnodes(names=names, reset=True)
+    names = cn.boards1.distinct('name')
+
+    #run_upd_boards(names)
+    run_bossnodes(names=names)
     #run_upd_bossedges(newids)
 
 
 def appitems():
     # append boards data to twcom.boards
-    def ins(r, col):
-        r['source'] = 'twfund'
-        col.insert(r)
-
     cn1 = init('twcom')
+
+    def insb(r):
+        r['source'] = 'twfund'
+        r['target'] = r['fund']
+        r['id'] = r.pop('fund')
+        cn1.boards.insert(r)
+
+    def ins(r):
+        r['source'] = 'twfund'
+        cn1.cominfo.insert(r)
+
     cond = {'_id': 0}
-    [ins(r, cn1.boards) for r in cn.boards.find({}, cond)]
-    [ins(r, cn1.cominfo) for r in cn.fundinfo1.find({}, cond)]
+    [insb(r) for r in cn.boards1.find({}, cond)]
+    [ins(r) for r in cn.fundinfo1.find({}, cond)]
 
 
 def run_upd_boards(names=None):
     """update all boards"""
-    step = 1000
+    step = 100
     [upd_boards(x) for x in chunk(names, step)]
-
-    update_boss()
 
 
 def upd_boards(names):
@@ -103,20 +113,21 @@ def dup_bossname(comids, nlim=2):
     """save any two fund's duplicate names and count by pair"""
     print get_funname()
     cn1 = init('twcom')
-    cn1.dupboss.drop()
+    #cn1.dupboss.drop()
     #cn1.dupboss.ensure_index([
     #    ('name', 1), ('fund1', 1), ('fund2', 2)], unique=True)
-    cn1.grpconn.drop()
+    #cn1.grpconn.drop()
 
     dic = defaultdict(set)
     ret = cn1.boards.find(
-        {}, {'name': 1, 'id': 1, 'fund': 1, '_id': 0})
+        {}, {'name': 1, 'id': 1, '_id': 0})
     [dic[getcomid(r)].add(r['name']) for r in ret]
-    dic = {k: v for k, v in dic.iteritems() if len(v) <= nlim}
-    comids_less = [id for id in comids if id in dic]
+
+    dic = {k: v for k, v in dic.iteritems() if len(v) >= nlim}
+    comids1 = [id for id in comids if id in dic]
 
     passid = set()
-    for id1, id2 in it.product(comids_less, dic.keys()):
+    for id1, id2 in it.product(comids1, dic.keys()):
         if ((id1 == id2) or (id2 in passid)):
             continue
         passid.add(id1)
@@ -125,20 +136,39 @@ def dup_bossname(comids, nlim=2):
         if len(namedup) < nlim:
             continue
 
-        dic = {
+        dic1 = {
+            'source': 'twfund',
             'com1': id1,
             'com2': id2,
             'names': list(namedup),
             'cnt': len(namedup)
             }
-        cn.dupboss.save(dic)
+        try:
+            cn1.dupboss.save(dic1)
+        except pymongo.errors.DuplicateKeyError as e:
+            print id1, id2
+            """"""
+        except:
+            print_exc()
+            set_trace()
 
-        fun = lambda name: \
-            cn.grpconn.save({
-                'name': name,
-                'com1': id1,
-                'com2': id2})
+        fun = lambda name: insgrpconn(cn1, name, id1, id2)
         map(fun, namedup)
+
+
+def insgrpconn(cn1, name, id1, id2):
+    try:
+        cn1.grpconn.insert({
+            'source': 'twfund',
+            'name': name,
+            'com1': id1,
+            'com2': id2})
+    except pymongo.errors.DuplicateKeyError as e:
+        print name, id1, id2
+        """"""
+    except:
+        print_exc()
+        set_trace()
 
 
 def getcomid(r):
@@ -162,55 +192,91 @@ def fix_bad_board():
         cn.boards1.save(r)
 
 
-def run_bossnodes(names=None, reset=False):
+def run_bossnodes(names):
     """refresh all bossnodes"""
     print get_funname()
+    if names is None:
+        raise Exception(u'empty names')
+
     #if reset:
     #    cn.bossnode.drop()
     #    cn.bossnode.create_index([('name', 1), ('target', 1)], unique=True)
 
     cn1 = init('twcom')
 
-    step = 500
-    if names is None:
-        names = cn1.boards.distinct('name')
-        logger.info('Total: {0}'.format(len(names)))
-
-    fun = lambda names1: adj_bossnode(names1, cn1)
-    [fun(x) for x in chunk(names, step)]
+    step = 10000
+    fun = lambda name_chunk: adj_bossnode(name_chunk, cn1)
+    map(fun, chunk(names, step))
     print 'Final'
 
 
-def adj_bossnode(names, cn):
+def adj_bossnode(names, cn1):
     """reset boss node by names"""
-    ret = cn.boards.find({'name': {'$in': names}})
+    def anyin(li0, li1):
+        return any([(x in li1) for x in li0])
+
+    ret = cn1.boards.find({'name': {'$in': names}})
     namedic = groupdic(ret, lambda r: r['name'])
-    ret = cn.bossnode.find({'names': {'$in': names}})
+    ret = cn1.bossnode.find({'name': {'$in': names}})
     bnodedic = groupdic(ret, lambda r: r['name'])
     grpdic = defaultdict(groups)
-    [grpdic[r['name']].add(r['com1'], r['com2'])
-        for r in cn.grpconn.find({'name': {'$in': names}})]
+    [grpdic[r['name']].add(r['com1'], r['com2']) for r in
+        cn1.grpconn.find({'name': {'$in': names}, 'source': 'twfund'})]
+    for k, rs in bnodedic.iteritems():
+        for r in rs:
+            grpdic[k].add(*r['coms'])
+    print len(names), len(bnodedic)
 
     for name, items in namedic.iteritems():
-        if bnodedic.get(name):
-            bdic = {b['target']: b for b in bnodedic[name]}
-        else:
-            bdic = {}
+        li = []
+        #print name
+        bnodes = bnodedic.get(name, [])
+        #if len(bnodes) > 0:
+        #    set_trace()
         grps = grpdic[name]
+        #[grps.add(*bnode['coms']) for bnode in bnodes]
         grouping(items, grps)
         df = groupdic(items, lambda r: getcomid(r))
-        upd_board_target(name, df, grps)
+        upd_board_target(name, df, grps, cn1)
+        #li.append([len(b['coms']) for b in bnodes])
 
         for grp in grps:
             dic = {'name': name,
                    'coms': list(grp)}
             dic['target'] = dic['coms'][0]
 
-            bnode = bdic.get(dic['target'])
+            bnode = [b for b in bnodes if anyin(b['coms'], grp)]
+
+            #li.append(['grp count: ', len(grp), len(bnode)])
+
             if not bnode:
-                cn.bossnode.insert(dic)
-            # 合併 bossnode
-            # 紀錄被合併的 bossnode，預備修改 bossedge
+                cn1.bossnode.insert(dic)
+                #li.extend(dic['coms'])
+            else:
+                b0, chg = None, False
+                ids = []
+                cnt = 0
+                for b in bnode:
+                    if b['target'] == dic['target']:
+                        b0 = b
+                        if b['coms'] != dic['coms']:
+                            chg = True
+                            b0['coms'] = dic['coms']
+                    else:
+                        ids.append(b['_id'])
+                        cnt += len(b['coms'])
+                if b0:
+                    if chg:
+                        cn1.bossnode.save(b0)
+                        #li.extend(b0['coms'])
+                else:
+                    cn1.bossnode.insert(dic)
+                    #li.extend(dic['coms'])
+                    #set_trace()
+                if ids:
+                    cn1.bossnode.remove({'_id': {'$in': ids}})
+
+        #sprint(li)
 
 
 def getcoms():

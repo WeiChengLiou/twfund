@@ -268,7 +268,7 @@ def defnew():
     li = []
     for name, r in df.groupby('name').last().iterrows():
         li.append((name, r['logkey']))
-    for item in chunk(li, 500):
+    for item in chunk(li, 1000):
         funds, logkeys = zip(*item)
         ret = cn.fundinfo.find({
             'name': {'$in': funds},
