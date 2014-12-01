@@ -21,20 +21,20 @@ from vis import output as opt
 # 3. 根據不同 graph 需求，畫出同公司董監事間的 boss edge
 # 4. 根據新的董監事名單，回到第一步，直到階數滿足為止。
 
-def get_boss_network(names, maxlvl=1, level=0, items=None, G=None):
+def get_boss_network(names, maxlvl=1, **kwargs):
     # 逐級建立董監事網絡圖
 
     if not hasattr(names, '__iter__'):
         names = [names]
 
-    if G is None:
-        G = nx.DiGraph()
-
-    if items is None:
-        items = {name: level for name in names}
+    G = kwargs.get('G', nx.Graph())
+    comdic = kwargs.get('comdic', {})
+    namedic = kwargs.get('namedic', {k: 0 for k in names})
+    level = kwargs.get('level', 0)
+    cn = kwargs.get('cn', init('twcom'))
 
 # 1. 給定 name 與 target，查詢相關公司
-    namekey, targets = zip(*map(invkey, names))
+    namekey, targets = zip(*map(invbosskey, names))
     ret = cn.bossnode.find({
         'name': {'$in': namekey},
         'target': {'$in': targets}})
@@ -43,33 +43,46 @@ def get_boss_network(names, maxlvl=1, level=0, items=None, G=None):
         key = bosskey(r['name'], r['target'])
         if key not in names:
             continue
-        coms.extend(r['coms'])
+        [coms.append(x) for x in r['coms'] if x not in comdic]
+        G.add_node(key, {'size': len(r['coms'])})
+    [comdic.__setitem__(com, level) for com in coms]
 
 # 2. 給定相關公司後，找出同間公司的董監名單
-    ret = cn.boards.find({'id': {'$in': coms}})
-    for r in ret:
-        """"""
-
-
-    newlvl = level + 1
-    for r in ret:
-        if (newlvl > maxlvl) and \
-                not all([x in items for x in (r['src'], r['dst'])]):
-            continue
-        G.add_edge(r['src'], r['dst'], {'width': r['cnt']})
-
-        if r['src'] not in items:
-            items[r['src']] = newlvl
-        if r['dst'] not in items:
-            items[r['dst']] = newlvl
+    if level < maxlvl:
+        ret = cn.boards.find({'id': {'$in': coms}}).sort('id')
+        for k, rs in it.groupby(ret, lambda x: x['id']):
+            rs = list(rs)
+            print k, len(rs)
+            addbossedge(G, rs)
+            for r in rs:
+                key = bosskey(r['name'], r['target'])
+                if key not in namedic:
+                    namedic[key] = level+1
 
     if level == 0:
+        kwargs['G'] = G
+        kwargs['comdic'] = comdic
+        kwargs['namedic'] = namedic
+        kwargs['cn'] = cn
         for lvl in xrange(1, maxlvl+1):
+            kwargs['level'] = lvl
             ids1 = [key1 for key1, lvl1 in it.ifilter(
-                    lambda x: lvl == x[1], items.iteritems())]
-            get_boss_network(ids1, maxlvl=maxlvl,
-                             level=lvl, items=items, G=G)
+                    lambda x: lvl == x[1], namedic.iteritems())]
+            get_boss_network(ids1, maxlvl=maxlvl, **kwargs)
+
     return G
+
+
+def addbossedge(G, rs):
+    # 3. 根據不同 graph 需求，畫出同公司董監事間的 boss edge
+    for r1, r2 in it.combinations(rs, 2):
+        key1 = bosskey(r1['name'], r1['target'])
+        key2 = bosskey(r2['name'], r2['target'])
+        if G.has_edge(key1, key2):
+            dic = G.get_edge_data(key1, key2)
+            dic['weight'] += 1
+        else:
+            G.add_edge(key1, key2, {'weight': 1})
 
 
 def get_network(ids, maxlvl=1, level=0, items=None, G=None):
