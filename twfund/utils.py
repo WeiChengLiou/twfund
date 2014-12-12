@@ -22,6 +22,9 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 
+CONFIG = yaml.load(open('config.yaml'))
+
+
 def init(db=None):
     "init mongodb db class"
     pwdfi = '../pwd1.yaml'
@@ -34,8 +37,6 @@ def init(db=None):
     else:
         dic['db'] = 'twfund'
     client = MongoClient(uri)
-    cn = eval("client.%s" % dic['db'])
-    return cn
-cn = init()
+    return eval("client.%s" % dic['db'])
 
-
+cn = init(CONFIG['db'])

@@ -10,8 +10,6 @@ from collections import defaultdict
 import itertools as it
 from work import *
 from utils import *
-#import multiprocessing as mp
-#pool = mp.Pool(processes=2)
 
 
 # 合併不同來源資料庫時，
@@ -47,7 +45,7 @@ def update_boss():
 
 def appitems():
     # append boards data to twcom.boards
-    cn1 = init('twcom')
+    cn1 = init(CONFIG['dstdb'])
 
     def insb(r):
         r['source'] = 'twfund'
@@ -112,7 +110,7 @@ def upd_board_target(name, df, grps, cn):
 def dup_bossname(comids, nlim=2):
     """save any two fund's duplicate names and count by pair"""
     print get_funname()
-    cn1 = init('twcom')
+    cn1 = init(CONFIG['dstdb'])
     #cn1.dupboss.drop()
     #cn1.dupboss.ensure_index([
     #    ('name', 1), ('fund1', 1), ('fund2', 2)], unique=True)
@@ -202,7 +200,7 @@ def run_bossnodes(names):
     #    cn.bossnode.drop()
     #    cn.bossnode.create_index([('name', 1), ('target', 1)], unique=True)
 
-    cn1 = init('twcom')
+    cn1 = init(CONFIG['dstdb'])
 
     step = 10000
     fun = lambda name_chunk: adj_bossnode(name_chunk, cn1)

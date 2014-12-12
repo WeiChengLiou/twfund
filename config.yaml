@@ -1,1 +1,3 @@
 src: ../foundationtw/output
+db: twfund201412
+dstdb: twcom201412
