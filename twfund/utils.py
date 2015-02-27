@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from pymongo import MongoClient
+from pymongo.errors import DuplicateKeyError
+from pdb import set_trace
+from traceback import print_exc
 import logging
 import yaml
 from os.path import exists
@@ -36,7 +39,23 @@ def init(db=None):
         dic['db'] = db
     else:
         dic['db'] = 'twfund'
-    client = MongoClient(uri)
-    return eval("client.%s" % dic['db'])
+    try:
+        return MongoClient(uri)[dic['db']]
+    except:
+        print 'LOGIN ERROR:', uri
+        raise Exception
+
 
 cn = init(CONFIG['db'])
+
+
+def insitem(cn, coll, item):
+    try:
+        cn[coll].insert(item)
+    except DuplicateKeyError:
+        """"""
+    except:
+        print_exc()
+        set_trace()
+
+

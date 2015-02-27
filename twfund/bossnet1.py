@@ -50,15 +50,16 @@ def appitems():
         r['source'] = 'twfund'
         r['target'] = r['fund']
         r['id'] = r.pop('fund')
-        cn1.boards.insert(r)
+        insitem(cn1, 'boards', r)
 
     def ins(r):
         r['source'] = 'twfund'
-        cn1.cominfo.insert(r)
+        r['id'] = r['name']
+        insitem(cn1, 'cominfo', r)
 
     cond = {'_id': 0}
-    [insb(r) for r in cn.boards1.find({}, cond)]
-    [ins(r) for r in cn.fundinfo1.find({}, cond)]
+    map(insb, cn.boards1.find({}, cond))
+    map(ins, cn.fundinfo1.find({}, cond))
 
 
 def run_upd_boards(names=None):
