@@ -83,6 +83,10 @@ class FundItem(object):
 
             if v in FundItem.funderrdic:
                 v = FundItem.funderrdic[v]
+        elif key == 'capital':
+            v = v.replace(',', '')
+            v = float(v) if v != '' else 0.
+
         self.__dict__[key] = v
 
     def insinfo(self):
